@@ -1,3 +1,10 @@
 creation de footer + test d'affichage (si ca fonctionne)
 creation de sidebar + test d'affichage 
 creation de layout +test d'affichage 
+
+
+evenement :
+    - ajout de budget
+    - ajout de depense 
+    - ajout de dettes
+    - ajout de remboursement 
