@@ -5,11 +5,15 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Layout from './src/components/Layout';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ClientScreen from './src/screens/ClientScreen';
+import CalendarScreen from './src/screens/CalendarScreen';
+import AddEventScreen from './src/screens/AddEventScreen';
 
 const Stack = createStackNavigator();
 
 export default function App() {
   const screens = [
+    { name: 'Calendar', component: CalendarScreen, hideFooter: true  },
+    { name: 'AddEvent', component: AddEventScreen, hideFooter: true }, 
     { name: 'Dashboard', component: DashboardScreen },
     { name: 'Clients', component: ClientScreen },
     // { name: 'Fullscreen', component: FullscreenScreen, hideFooter: true },

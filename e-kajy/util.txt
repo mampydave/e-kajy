@@ -2,3 +2,6 @@ npm install @react-navigation/native @react-navigation/drawer react-native-gestu
 npm install @react-navigation/stack
 # pour le web 
 npx expo install react-dom react-native-web @expo/metro-runtime
+npx expo install react-native-calendars expo-sqlite
+npx expo install react-native-svg
+npm install victory-native
