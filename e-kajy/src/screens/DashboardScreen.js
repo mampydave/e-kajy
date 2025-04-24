@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import DashboardRepository from './DashboardRepository';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import DashboardRepository from './../database/DashboardRepository';
 
 const DashboardScreen = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -29,6 +29,28 @@ const DashboardScreen = () => {
     }
   };
 
+  const resetAllData = async () => {
+    Alert.alert(
+      'Confirmation',
+      'Voulez-vous vraiment réinitialiser toutes les données ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Oui',
+          onPress: async () => {
+            try {
+              await DashboardRepository.resetAllData();
+              await loadData();
+            } catch (error) {
+              console.error('Erreur lors de la réinitialisation :', error);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const renderFilterButtons = () => (
     <View style={styles.filterContainer}>
       {['jour', 'semaine', 'mois', 'annee'].map((item) => (
@@ -48,6 +70,10 @@ const DashboardScreen = () => {
       <Text style={styles.title}>Dashboard</Text>
 
       {renderFilterButtons()}
+
+      <TouchableOpacity style={styles.resetButton} onPress={resetAllData}>
+        <Text style={styles.resetText}>Réinitialiser toutes les données</Text>
+      </TouchableOpacity>
 
       {dashboardData && (
         <View>
@@ -121,6 +147,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 16,
     color: 'red'
+  },
+  resetButton: {
+    alignSelf: 'center',
+    backgroundColor: 'red',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 10,
+  },
+  resetText: {
+    color: 'white',
+    fontWeight: 'bold',
   }
 });
 
