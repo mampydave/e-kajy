@@ -1,0 +1,4 @@
+npm install @react-navigation/native @react-navigation/drawer react-native-gesture-handler react-native-reanimated
+npm install @react-navigation/stack
+# pour le web 
+npx expo install react-dom react-native-web @expo/metro-runtime
