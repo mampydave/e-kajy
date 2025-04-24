@@ -118,6 +118,24 @@ class DashboardRepository {
     );
     return res[0].rows.length > 0 ? res[0].rows.item(0).nom : '-';
   }
+
+
+  async resetAllData() {
+    try {
+      await this.db.db.transaction(async (tx) => {
+        await tx.executeSql('DELETE FROM budgets');
+        await tx.executeSql('DELETE FROM depenses');
+        await tx.executeSql('DELETE FROM dettes');
+        await tx.executeSql('DELETE FROM remboursements');
+        await tx.executeSql('DELETE FROM clients');
+      });
+      console.log('Toutes les données ont été réinitialisées.');
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation des données :', error);
+      throw error;
+    }
+  }
+  
 }
 
 export default new DashboardRepository();
