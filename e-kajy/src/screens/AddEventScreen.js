@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Picker, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet,  ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useRoute } from '@react-navigation/native';
 import BudgetRepository from './../database/BudgetRepository';
 import DepenseRepository from './../database/DepenseRepository';

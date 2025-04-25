@@ -7,6 +7,15 @@ import Footer from './Footer';
 
 const Drawer = createDrawerNavigator();
 
+const ScreenWrapper = ({ component: Component, hideFooter, ...props }) => (
+  <View style={styles.layoutContainer}>
+    <View style={styles.content}>
+      <Component {...props} />
+    </View>
+    {!hideFooter && <Footer />}
+  </View>
+);
+
 export default function Layout({ screens }) {
   return (
     <NavigationContainer>
@@ -26,19 +35,19 @@ export default function Layout({ screens }) {
           headerTintColor: '#fff',
         }}
       >
-        {screens.map((screen, index) => (
+        {screens.map((screen) => (
           <Drawer.Screen
-            key={index}
+            key={screen.name}
             name={screen.name}
-            component={(props) => (
-              <View style={styles.layoutContainer}>
-                <View style={styles.content}>
-                  {React.createElement(screen.component, props)}
-                </View>
-                {!screen.hideFooter && <Footer />}
-              </View>
+          >
+            {(props) => (
+              <ScreenWrapper 
+                component={screen.component} 
+                hideFooter={screen.hideFooter} 
+                {...props} 
+              />
             )}
-          />
+          </Drawer.Screen>
         ))}
       </Drawer.Navigator>
     </NavigationContainer>
