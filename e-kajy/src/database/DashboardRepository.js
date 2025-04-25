@@ -124,10 +124,15 @@ class DashboardRepository {
     try {
       await this.db.db.transaction(async (tx) => {
         await tx.executeSql('DELETE FROM budgets');
+        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'budgets'");
         await tx.executeSql('DELETE FROM depenses');
+        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'depenses'");
         await tx.executeSql('DELETE FROM dettes');
+        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'dettes'");
         await tx.executeSql('DELETE FROM remboursements');
+        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'remboursements'");
         await tx.executeSql('DELETE FROM clients');
+        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'clients'");
       });
       console.log('Toutes les données ont été réinitialisées.');
     } catch (error) {

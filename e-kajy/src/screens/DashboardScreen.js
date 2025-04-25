@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   resetText: {
     color: 'white',
     fontWeight: 'bold',
-  }
+  },
 });
 
 export default DashboardScreen;
