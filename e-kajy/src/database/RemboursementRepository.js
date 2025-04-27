@@ -25,6 +25,22 @@ class RemboursementRepository {
     }
   }
 
+  async getAllRemboursements() {
+    try {
+      let remboursements = [];
+      await this.db.db.transaction(async (tx) => {
+        const result = await tx.executeSql('SELECT * FROM remboursements ORDER BY date DESC');
+        for (let i = 0; i < result.rows.length; i++) {
+          remboursements.push(result.rows.item(i));
+        }
+      });
+      return remboursements;
+    } catch (error) {
+      console.error('Erreur récupération remboursements:', error);
+      throw error;
+    }
+  }
+
   async getRemboursementsByClient(idClient) {
     try {
       let remboursements = [];

@@ -25,6 +25,22 @@ class BudgetRepository {
     }
   }
 
+  async getAllBudgets() {
+    try {
+      let budgets = [];
+      await this.db.db.transaction(async (tx) => {
+        const result = await tx.executeSql('SELECT * FROM budgets ORDER BY date DESC');
+        for (let i = 0; i < result.rows.length; i++) {
+          budgets.push(result.rows.item(i));
+        }
+      });
+      return budgets;
+    } catch (error) {
+      console.error('Erreur récupération budgets:', error);
+      throw error;
+    }
+  }
+  
   async getBudgetsByClient(idClient) {
     try {
       let budgets = [];

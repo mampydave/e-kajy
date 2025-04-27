@@ -1,30 +1,82 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, Button } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { useNavigation } from '@react-navigation/native';
+import AddEventScreen from './AddEventScreen';
+import EventRepository from './../database/EventRepository'; 
 
 export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(null);
-  const navigation = useNavigation();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [events, setEvents] = useState({});
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      const allEvents = await EventRepository.getAllEvents(); 
+
+      const typeColors = {
+        budget: 'green',
+        depense: 'red',
+        dette: 'blue',
+        remboursement: 'orange'
+      };
+      
+      const marked = {};
+      allEvents.forEach(event => {
+        marked[event.date] = {
+          marked: true,
+          dotColor: typeColors[event.type] || 'black'
+        };
+      });
+      
+      setEvents(marked);
+    } catch (error) {
+      console.error('Erreur chargement événements', error);
+    }
+  };
 
   const handleDayPress = (day) => {
     setSelectedDate(day.dateString);
-    navigation.navigate('AddEvent', { selectedDate: day.dateString });
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    loadEvents();
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Calendrier</Text>
+
       <Calendar
         onDayPress={handleDayPress}
         markedDates={{
-          [selectedDate]: {
-            selected: true,
-            marked: true,
-            selectedColor: 'black',
-          },
+          ...events,
+          ...(selectedDate && {
+            [selectedDate]: {
+              selected: true,
+              selectedColor: 'black',
+              marked: true,
+              dotColor: 'black',
+            }
+          })
         }}
       />
+
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContent}>
+          <AddEventScreen selectedDate={selectedDate} onClose={handleCloseModal} />
+          <Button title="Fermer" onPress={handleCloseModal} />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -32,4 +84,5 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 10 },
   title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
+  modalContent: { flex: 1, padding: 20 },
 });
