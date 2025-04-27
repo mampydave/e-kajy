@@ -25,6 +25,22 @@ class DetteRepository {
     }
   }
 
+  async getAllDettes() {
+    try {
+      let dettes = [];
+      await this.db.db.transaction(async (tx) => {
+        const result = await tx.executeSql('SELECT * FROM dettes ORDER BY date DESC');
+        for (let i = 0; i < result.rows.length; i++) {
+          dettes.push(result.rows.item(i));
+        }
+      });
+      return dettes;
+    } catch (error) {
+      console.error('Erreur récupération dettes:', error);
+      throw error;
+    }
+  }
+
   async getDettesByClient(idClient) {
     try {
       let dettes = [];
