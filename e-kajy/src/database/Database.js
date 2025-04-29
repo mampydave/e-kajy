@@ -1,9 +1,5 @@
-import SQLite from 'react-native-sqlite-storage';
+import * as SQLite from 'expo-sqlite';
 import { SCHEMA, SCHEMA_VERSION } from './schema';
-
-// Active le mode debug si nécessaire
-SQLite.DEBUG(true);
-SQLite.enablePromise(true);
 
 class Database {
   constructor() {
@@ -11,16 +7,13 @@ class Database {
     this.dbName = 'financial.db';
   }
 
-  // Initialisation de la base de données
+
   async init() {
     try {
-      this.db = await SQLite.openDatabase(
+      this.db = SQLite.openDatabase(
         this.dbName,
         SCHEMA_VERSION,
-        'Financial Database',
-        -1, // Taille max (infinie si -1)
-        this._onDatabaseOpen,
-        this._onDatabaseError
+        'Financial Database'
       );
       
       await this._createTables();
@@ -31,53 +24,51 @@ class Database {
     }
   }
 
-  // Création des tables
+
   async _createTables() {
-    try {
-      await this.db.transaction(async (tx) => {
-        for (const table of SCHEMA.tables) {
-          // Construction de la requête CREATE TABLE
-          const columns = table.columns.map(col => {
-            if (col.type) {
-              return `${col.name} ${col.type}`;
-            }
-            return col.name;
-          }).join(', ');
-          
-          await tx.executeSql(
-            `CREATE TABLE IF NOT EXISTS ${table.name} (${columns})`,
-            []
-          );
+    return new Promise((resolve, reject) => {
+      this.db.transaction(
+        tx => {
+          for (const table of SCHEMA.tables) {
+
+            const columns = table.columns.map(col => {
+              if (col.type) {
+                return `${col.name} ${col.type}`;
+              }
+              return col.name;
+            }).join(', ');
+            
+            tx.executeSql(
+              `CREATE TABLE IF NOT EXISTS ${table.name} (${columns})`,
+              [],
+              () => {},
+              (_, error) => {
+                console.error(`Erreur création table ${table.name}:`, error);
+                return false; 
+              }
+            );
+          }
+        },
+        error => {
+          console.error('Erreur transaction création tables:', error);
+          reject(error);
+        },
+        () => {
+          console.log('Tables créées avec succès');
+          resolve();
         }
-      });
-    } catch (error) {
-      console.error('Erreur création tables:', error);
-      throw error;
-    }
+      );
+    });
   }
-
-
-  _onDatabaseOpen(db) {
-    console.log('Database OPENED:', db);
-  }
-
-
-  _onDatabaseError(error) {
-    console.error('Database ERROR:', error);
-  }
-
 
   async close() {
-    if (this.db) {
-      await this.db.close();
-      this.db = null;
-    }
+    this.db = null;
   }
 
-
   async delete() {
-    await SQLite.deleteDatabase(this.dbName);
+
     this.db = null;
+    await SQLite.deleteDatabaseAsync(this.dbName);
   }
 }
 
