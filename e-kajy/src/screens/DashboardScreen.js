@@ -5,7 +5,20 @@ import DashboardRepository from './../database/DashboardRepository';
 const DashboardScreen = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [filter, setFilter] = useState('jour');
+  useEffect(() => {
+    const initializeRepositories = async () => {
+      try {
+        await Promise.all([
+          DashboardRepository.init()
+        ]);
+        
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
+    };
 
+    initializeRepositories();
+  }, []);
   useEffect(() => {
     loadData();
   }, [filter]);

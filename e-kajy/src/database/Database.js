@@ -7,10 +7,14 @@ SQLite.enablePromise(true);
 
 class Database {
   constructor() {
-    this.db = null;
-    this.dbName = 'financial.db';
+    this.db = SQLite.openDatabase(
+      'financial.db',
+      SCHEMA_VERSION,
+      'Financial Database'
+    );
   }
 
+<<<<<<< Updated upstream
   // Initialisation de la base de données
   async init() {
     try {
@@ -48,6 +52,36 @@ class Database {
             `CREATE TABLE IF NOT EXISTS ${table.name} (${columns})`,
             []
           );
+=======
+  init() {
+    return new Promise((resolve, reject) => {
+      this.db.transaction(
+        tx => {
+          // Création des tables
+          SCHEMA.tables.forEach(table => {
+            const columns = table.columns
+              .map(col => `${col.name} ${col.type || 'TEXT'}`)
+              .join(', ');
+            
+            tx.executeSql(
+              `CREATE TABLE IF NOT EXISTS ${table.name} (${columns});`,
+              [],
+              () => console.log(`Table ${table.name} prête`),
+              (_, error) => {
+                console.error(`Erreur sur table ${table.name}:`, error);
+                return true; // Continue malgré l'erreur
+              }
+            );
+          });
+        },
+        error => {
+          console.error('Erreur transaction init:', error);
+          reject(error);
+        },
+        () => {
+          console.log('Initialisation DB complète');
+          resolve();
+>>>>>>> Stashed changes
         }
       });
     } catch (error) {
@@ -56,6 +90,7 @@ class Database {
     }
   }
 
+<<<<<<< Updated upstream
 
   _onDatabaseOpen(db) {
     console.log('Database OPENED:', db);
@@ -77,8 +112,39 @@ class Database {
 
   async delete() {
     await SQLite.deleteDatabase(this.dbName);
+=======
+  executeSql(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.transaction(
+        tx => {
+          tx.executeSql(
+            sql,
+            params,
+            (_, result) => resolve(result),
+            (_, error) => {
+              console.error('Erreur SQL:', error, 'Query:', sql);
+              reject(error);
+              return true;
+            }
+          );
+        },
+        error => reject(error)
+      );
+    });
+  }
+
+  async close() {
+
+    return Promise.resolve();
+  }
+
+  async delete() {
+    await SQLite.deleteDatabaseAsync('financial.db');
+>>>>>>> Stashed changes
     this.db = null;
   }
 }
 
-export default new Database();
+
+const databaseInstance = new Database();
+export default databaseInstance;

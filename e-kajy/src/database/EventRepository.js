@@ -17,7 +17,6 @@ class EventRepository {
     try {
       await this.db.init();
       
-      // Initialisation parallèle des repositories
       await Promise.all([
         BudgetRepository.init(),
         DepenseRepository.init(),
@@ -40,8 +39,8 @@ class EventRepository {
       const [budgets, depenses, dettes, remboursements, clients] = await Promise.all([
         BudgetRepository.getAllBudgets(),
         DepenseRepository.getAllDepenses(),
-        DetteRepository.getAllDettes(true), 
-        RemboursementRepository.getAllRemboursements(true),
+        DetteRepository.getAllDettes(true),  
+        RemboursementRepository.getAllRemboursements(true), 
         ClientRepository.getAllClients()
       ]);
 
@@ -70,7 +69,7 @@ class EventRepository {
         ...depenses.map(d => transformEvent(d, 'depense')),
         ...dettes.map(d => transformEvent(d, 'dette')),
         ...remboursements.map(r => transformEvent(r, 'remboursement'))
-      ].sort((a, b) => new Date(b.date) - new Date(a.date));
+      ].sort((a, b) => new Date(b.date) - new Date(a.date)); 
 
     } catch (error) {
       console.error('Error getting all events:', error);
@@ -96,8 +95,8 @@ class EventRepository {
       const [budgets, depenses, dettes, remboursements] = await Promise.all([
         BudgetRepository.getAllBudgets(),
         DepenseRepository.getAllDepenses(),
-        DetteRepository.getAllDettes(true),
-        RemboursementRepository.getAllRemboursements(true)
+        DetteRepository.getAllDettes(),
+        RemboursementRepository.getAllRemboursements()
       ]);
 
       const totalBudgets = budgets.reduce((sum, b) => sum + b.montant, 0);

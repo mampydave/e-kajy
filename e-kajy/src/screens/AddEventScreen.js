@@ -6,6 +6,10 @@ import DepenseRepository from './../database/DepenseRepository';
 import DetteRepository from './../database/DetteRepository';
 import RemboursementRepository from './../database/RemboursementRepository';
 import ClientRepository from './../database/ClientRepository';
+<<<<<<< Updated upstream
+=======
+import EventRepository from './../database/EventRepository'; 
+>>>>>>> Stashed changes
 
 export default function AddEventScreen() {
   const route = useRoute();
@@ -21,7 +25,21 @@ export default function AddEventScreen() {
   useEffect(() => {
     const loadClients = async () => {
       try {
+<<<<<<< Updated upstream
         const list = await ClientRepository.getAllClients(); // méthode à créer si tu ne l’as pas encore
+=======
+        await Promise.all([
+          BudgetRepository.init(),
+          DepenseRepository.init(),
+          DetteRepository.init(),
+          RemboursementRepository.init(),
+          ClientRepository.init(),
+          EventRepository.init()
+
+        ]);
+
+        const list = await ClientRepository.getAllClients();
+>>>>>>> Stashed changes
         setClients(list);
         if (list.length > 0) setIdClient(list[0].idClient.toString());
       } catch (e) {

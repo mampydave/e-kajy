@@ -6,89 +6,100 @@ class ClientRepository {
   }
 
   async init() {
-    await this.db.init();
+    try {
+      await this.db.init();
+      console.log('ClientRepository initialized');
+    } catch (error) {
+      console.error('Failed to initialize ClientRepository:', error);
+      throw error;
+    }
+  }
+
+  async executeQuery(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.db.transaction(
+        tx => {
+          tx.executeSql(
+            sql,
+            params,
+            (_, result) => resolve(result),
+            (_, error) => {
+              console.error('SQL Error:', error);
+              reject(error);
+              return true; 
+            }
+          );
+        },
+        error => reject(error)
+      );
+    });
   }
 
   async createClient(nom) {
     try {
-      let result;
-      await this.db.db.transaction(async (tx) => {
-        result = await tx.executeSql(
-          'INSERT INTO clients (nom) VALUES (?)',
-          [nom]
-        );
-      });
+      const result = await this.executeQuery(
+        'INSERT INTO clients (nom) VALUES (?)',
+        [nom]
+      );
       return result.insertId;
     } catch (error) {
-      console.error('Erreur création client:', error);
+      console.error('Error creating client:', error);
       throw error;
     }
   }
 
   async getAllClients() {
     try {
-      let clients = [];
-      await this.db.db.transaction(async (tx) => {
-        const result = await tx.executeSql('SELECT * FROM clients ORDER BY nom');
-        for (let i = 0; i < result.rows.length; i++) {
-          clients.push(result.rows.item(i));
-        }
-      });
-      return clients;
+      const result = await this.executeQuery(
+        'SELECT * FROM clients ORDER BY nom'
+      );
+      return result.rows._array;
     } catch (error) {
-      console.error('Erreur récupération clients:', error);
+      console.error('Error fetching clients:', error);
       throw error;
     }
   }
 
   async getClientById(idClient) {
     try {
-      let client = null;
-      await this.db.db.transaction(async (tx) => {
-        const result = await tx.executeSql(
-          'SELECT * FROM clients WHERE idClient = ?',
-          [idClient]
-        );
-        if (result.rows.length > 0) {
-          client = result.rows.item(0);
-        }
-      });
-      return client;
+      const result = await this.executeQuery(
+        'SELECT * FROM clients WHERE idClient = ?',
+        [idClient]
+      );
+      return result.rows._array[0] || null;
     } catch (error) {
-      console.error('Erreur récupération client:', error);
+      console.error('Error fetching client:', error);
       throw error;
     }
   }
 
   async updateClient(idClient, nom) {
     try {
-      await this.db.db.transaction(async (tx) => {
-        await tx.executeSql(
-          'UPDATE clients SET nom = ? WHERE idClient = ?',
-          [nom, idClient]
-        );
-      });
-      return true;
+      const result = await this.executeQuery(
+        'UPDATE clients SET nom = ? WHERE idClient = ?',
+        [nom, idClient]
+      );
+      return result.rowsAffected > 0;
     } catch (error) {
-      console.error('Erreur mise à jour client:', error);
+      console.error('Error updating client:', error);
       throw error;
     }
   }
 
   async deleteClient(idClient) {
     try {
-      await this.db.db.transaction(async (tx) => {
-        await tx.executeSql(
-          'DELETE FROM clients WHERE idClient = ?',
-          [idClient]
-        );
-      });
-      return true;
+      const result = await this.executeQuery(
+        'DELETE FROM clients WHERE idClient = ?',
+        [idClient]
+      );
+      return result.rowsAffected > 0;
     } catch (error) {
-      console.error('Erreur suppression client:', error);
+      console.error('Error deleting client:', error);
       throw error;
     }
   }
 }
 
-export default new ClientRepository();
+
+const clientRepository = new ClientRepository();
+export default clientRepository;
