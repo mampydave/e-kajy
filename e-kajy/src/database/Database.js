@@ -2,74 +2,82 @@ import * as SQLite from 'expo-sqlite';
 import { SCHEMA, SCHEMA_VERSION } from './schema';
 
 class Database {
+  private db: SQLite.SQLiteDatabase;
+  private readonly dbName: string = 'financial.db';
+
   constructor() {
-    this.db = null;
-    this.dbName = 'financial.db';
+    this.db = SQLite.openDatabase(
+      this.dbName,
+      SCHEMA_VERSION,
+      'Financial Database'
+    );
   }
 
-
-  async init() {
+  async init(): Promise<void> {
     try {
-      this.db = SQLite.openDatabase(
-        this.dbName,
-        SCHEMA_VERSION,
-        'Financial Database'
-      );
-      
       await this._createTables();
-      return this.db;
     } catch (error) {
-      console.error('Erreur initialisation DB:', error);
       throw error;
     }
   }
 
-
-  async _createTables() {
+  private async _createTables(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db.transaction(
         tx => {
-          for (const table of SCHEMA.tables) {
+          SCHEMA.tables.forEach(table => {
+            const columns = table.columns
+              .map(col => col.type ? `${col.name} ${col.type}` : col.name)
+              .join(', ');
 
-            const columns = table.columns.map(col => {
-              if (col.type) {
-                return `${col.name} ${col.type}`;
-              }
-              return col.name;
-            }).join(', ');
-            
             tx.executeSql(
               `CREATE TABLE IF NOT EXISTS ${table.name} (${columns})`,
               [],
               () => {},
               (_, error) => {
-                console.error(`Erreur création table ${table.name}:`, error);
-                return false; 
+                return true;
               }
             );
-          }
+          });
         },
         error => {
-          console.error('Erreur transaction création tables:', error);
           reject(error);
         },
         () => {
-          console.log('Tables créées avec succès');
           resolve();
         }
       );
     });
   }
 
-  async close() {
-    this.db = null;
+  async executeSql(sql: string, params: any[] = []): Promise<SQLite.SQLResultSet> {
+    return new Promise((resolve, reject) => {
+      this.db.transaction(
+        tx => {
+          tx.executeSql(
+            sql,
+            params,
+            (_, result) => resolve(result),
+            (_, error) => {
+              reject(error);
+              return true;
+            }
+          );
+        },
+        error => reject(error)
+      );
+    });
   }
 
-  async delete() {
+  async close(): Promise<void> {
+    this.db = null as unknown as SQLite.SQLiteDatabase;
+  }
 
-    this.db = null;
+  async delete(): Promise<void> {
     await SQLite.deleteDatabaseAsync(this.dbName);
+    this.db = null as unknown as SQLite.SQLiteDatabase;
   }
 }
 
-export default new Database();
+const databaseInstance = new Database();
+export default databaseInstance;

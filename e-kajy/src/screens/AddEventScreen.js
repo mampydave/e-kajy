@@ -6,7 +6,9 @@ import DepenseRepository from './../database/DepenseRepository';
 import DetteRepository from './../database/DetteRepository';
 import RemboursementRepository from './../database/RemboursementRepository';
 import ClientRepository from './../database/ClientRepository';
-import EventRepository from './../database/EventRepository'; // <== tu rajoutes
+
+import EventRepository from './../database/EventRepository'; 
+
 
 export default function AddEventScreen({ selectedDate, onClose }) {
   const [type, setType] = useState('budget');
@@ -21,7 +23,19 @@ export default function AddEventScreen({ selectedDate, onClose }) {
   useEffect(() => {
     const loadData = async () => {
       try {
+
+        await Promise.all([
+          BudgetRepository.init(),
+          DepenseRepository.init(),
+          DetteRepository.init(),
+          RemboursementRepository.init(),
+          ClientRepository.init(),
+          EventRepository.init()
+
+        ]);
+
         const list = await ClientRepository.getAllClients();
+
         setClients(list);
         if (list.length > 0) setIdClient(list[0].idClient.toString());
       } catch (e) {

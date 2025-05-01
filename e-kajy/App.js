@@ -1,4 +1,4 @@
-import 'react-native-gesture-handler'; // Doit être la PREMIÈRE importation
+import 'react-native-gesture-handler'; 
 import React from 'react';
 import { enableScreens } from 'react-native-screens';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,13 +10,13 @@ import ClientScreen from './src/screens/ClientScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import AddEventScreen from './src/screens/AddEventScreen';
 
-// Active les vues natives optimisées
+
 enableScreens();
 
 export default function App() {
   const screens = [
     { name: 'Calendar', component: CalendarScreen, hideFooter: true },
-    { name: 'AddEvent', component: AddEventScreen, hideFooter: true }, 
+    { name: 'AddEvent', component: AddEventScreen}, 
     { name: 'Dashboard', component: DashboardScreen },
     { name: 'Clients', component: ClientScreen },
   ];

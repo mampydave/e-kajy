@@ -11,10 +11,24 @@ import {
 } from 'react-native';
 import ClientRepository from './../database/ClientRepository'; 
 
+
 const ClientScreen = () => {
   const [nom, setNom] = useState('');
   const [clients, setClients] = useState([]);
+  useEffect(() => {
+    const initializeRepositories = async () => {
+      try {
+        await Promise.all([
+          ClientRepository.init()
+        ]);
+        
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
+    };
 
+    initializeRepositories();
+  }, []);
   useEffect(() => {
     loadClients();
   }, []);

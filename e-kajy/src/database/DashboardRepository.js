@@ -6,15 +6,38 @@ class DashboardRepository {
   }
 
   async init() {
-    await this.db.init();
+    try {
+      await this.db.init();
+      console.log('DashboardRepository initialized');
+    } catch (error) {
+      console.error('Failed to initialize DashboardRepository:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Récupère les données pour le dashboard en filtrant par jour, semaine, mois ou année
-   * @param {'jour'|'semaine'|'mois'|'annee'} type
-   */
+  async executeQuery(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this.db.db.transaction(
+        tx => {
+          tx.executeSql(
+            sql,
+            params,
+            (_, result) => resolve(result),
+            (_, error) => {
+              console.error('SQL Error:', error);
+              reject(error);
+              return true;
+            }
+          );
+        },
+        error => reject(error)
+      );
+    });
+  }
+
   async getDashboardDataByDateType(type = 'jour') {
     try {
+      const dateFilter = this._buildDateFilter(type);
       const data = {
         budget: 0,
         depense: 0,
@@ -22,48 +45,21 @@ class DashboardRepository {
         clientsAvecDetteNonRembourse: []
       };
 
-      const dateFilter = this._buildDateFilter(type);
 
-      await this.db.db.transaction(async (tx) => {
-        // Total budget
-        const budgetRes = await tx.executeSql(
-          `SELECT SUM(montant) AS total FROM budgets ${dateFilter('datebudget')}`
-        );
-        data.budget = budgetRes[0].rows.item(0).total || 0;
-
-        // Total dépenses
-        const depenseRes = await tx.executeSql(
-          `SELECT SUM(montant) AS total FROM depenses ${dateFilter('datedepense')}`
-        );
-        data.depense = depenseRes[0].rows.item(0).total || 0;
-
-        // Historique combiné (avec clients)
-        const historiqueRes = await tx.executeSql(
-          `
-            SELECT 'Budget' AS type, montant, datebudget AS date, idClient FROM budgets ${dateFilter('datebudget')}
-            UNION ALL
-            SELECT 'Dépense', montant, datedepense, NULL FROM depenses ${dateFilter('datedepense')}
-            UNION ALL
-            SELECT 'Dette', montant, datedette, idClient FROM dettes ${dateFilter('datedette')}
-            UNION ALL
-            SELECT 'Remboursement', montant, dateRemboursement, idClient FROM remboursements ${dateFilter('dateRemboursement')}
-            ORDER BY date DESC
-          `
-        );
-
-        for (let i = 0; i < historiqueRes[0].rows.length; i++) {
-          const row = historiqueRes[0].rows.item(i);
-          data.historique.push({
-            type: row.type,
-            montant: row.montant,
-            date: row.date,
-            client: row.idClient ? await this._getClientNameById(tx, row.idClient) : '-'
-          });
-        }
-
-        // Clients avec dettes non remboursées
-        const dettesRes = await tx.executeSql(
-          `
+      const [budgetRes, depenseRes, historiqueRes, dettesRes] = await Promise.all([
+        this.executeQuery(`SELECT SUM(montant) AS total FROM budgets ${dateFilter('datebudget')}`),
+        this.executeQuery(`SELECT SUM(montant) AS total FROM depenses ${dateFilter('datedepense')}`),
+        this.executeQuery(`
+          SELECT 'Budget' AS type, montant, datebudget AS date, idClient FROM budgets ${dateFilter('datebudget')}
+          UNION ALL
+          SELECT 'Dépense', montant, datedepense, NULL FROM depenses ${dateFilter('datedepense')}
+          UNION ALL
+          SELECT 'Dette', montant, datedette, idClient FROM dettes ${dateFilter('datedette')}
+          UNION ALL
+          SELECT 'Remboursement', montant, dateRemboursement, idClient FROM remboursements ${dateFilter('dateRemboursement')}
+          ORDER BY date DESC
+        `),
+        this.executeQuery(`
           SELECT c.nom, 
                  SUM(d.montant) AS totalDette, 
                  IFNULL(SUM(r.montant), 0) AS totalRembourse, 
@@ -73,74 +69,85 @@ class DashboardRepository {
           LEFT JOIN remboursements r ON r.idClient = d.idClient
           GROUP BY d.idClient
           HAVING restant > 0
-          `
-        );
+        `)
+      ]);
 
-        for (let i = 0; i < dettesRes[0].rows.length; i++) {
-          const row = dettesRes[0].rows.item(i);
-          data.clientsAvecDetteNonRembourse.push({
-            nom: row.nom,
-            montant: row.restant
-          });
-        }
-      });
+
+      data.budget = budgetRes.rows.item(0)?.total || 0;
+      data.depense = depenseRes.rows.item(0)?.total || 0;
+
+      const historiqueWithClients = await Promise.all(
+        historiqueRes.rows._array.map(async item => ({
+          ...item,
+          client: item.idClient ? await this._getClientNameById(item.idClient) : '-'
+        }))
+      );
+      data.historique = historiqueWithClients;
+
+      data.clientsAvecDetteNonRembourse = dettesRes.rows._array.map(row => ({
+        nom: row.nom,
+        montant: row.restant
+      }));
 
       return data;
     } catch (error) {
-      console.error('Erreur getDashboardDataByDateType:', error);
+      console.error('Error in getDashboardDataByDateType:', error);
       throw error;
     }
   }
 
   _buildDateFilter(type) {
     return (dateCol) => {
+      const now = new Date().toISOString();
       switch (type) {
         case 'jour':
-          return `WHERE date(${dateCol}) = date('now')`;
+          return `WHERE date(${dateCol}) = date('${now}')`;
         case 'semaine':
-          return `WHERE strftime('%W', ${dateCol}) = strftime('%W', 'now') AND strftime('%Y', ${dateCol}) = strftime('%Y', 'now')`;
+          return `WHERE strftime('%W', ${dateCol}) = strftime('%W', '${now}') 
+                  AND strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
         case 'mois':
-          return `WHERE strftime('%m', ${dateCol}) = strftime('%m', 'now') AND strftime('%Y', ${dateCol}) = strftime('%Y', 'now')`;
+          return `WHERE strftime('%m', ${dateCol}) = strftime('%m', '${now}') 
+                  AND strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
         case 'annee':
-          return `WHERE strftime('%Y', ${dateCol}) = strftime('%Y', 'now')`;
+          return `WHERE strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
         default:
           return '';
       }
     };
   }
-  
 
-  async _getClientNameById(tx, idClient) {
+  async _getClientNameById(idClient) {
     if (!idClient) return '-';
-    const res = await tx.executeSql(
-      `SELECT nom FROM clients WHERE idClient = ?`,
-      [idClient]
-    );
-    return res[0].rows.length > 0 ? res[0].rows.item(0).nom : '-';
+    try {
+      const res = await this.executeQuery(
+        'SELECT nom FROM clients WHERE idClient = ?',
+        [idClient]
+      );
+      return res.rows.length > 0 ? res.rows.item(0).nom : '-';
+    } catch (error) {
+      console.error('Error fetching client name:', error);
+      return '-';
+    }
   }
-
 
   async resetAllData() {
     try {
-      await this.db.db.transaction(async (tx) => {
-        await tx.executeSql('DELETE FROM budgets');
-        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'budgets'");
-        await tx.executeSql('DELETE FROM depenses');
-        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'depenses'");
-        await tx.executeSql('DELETE FROM dettes');
-        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'dettes'");
-        await tx.executeSql('DELETE FROM remboursements');
-        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'remboursements'");
-        await tx.executeSql('DELETE FROM clients');
-        await tx.executeSql("DELETE FROM sqlite_sequence WHERE name = 'clients'");
+      await this.db.db.transaction(async tx => {
+        const tables = ['budgets', 'depenses', 'dettes', 'remboursements', 'clients'];
+        for (const table of tables) {
+          await tx.executeSql(`DELETE FROM ${table}`);
+          await tx.executeSql(`DELETE FROM sqlite_sequence WHERE name = ?`, [table]);
+        }
       });
-      console.log('Toutes les données ont été réinitialisées.');
+      console.log('All data reset successfully');
+      return true;
     } catch (error) {
-      console.error('Erreur lors de la réinitialisation des données :', error);
+      console.error('Error resetting data:', error);
       throw error;
     }
   }
-  
 }
 
-export default new DashboardRepository();
+
+const dashboardRepository = new DashboardRepository();
+export default dashboardRepository;

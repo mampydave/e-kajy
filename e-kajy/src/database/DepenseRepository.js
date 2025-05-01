@@ -1,79 +1,125 @@
 import Database from './Database';
+import BudgetRepository from './BudgetRepository';
+import DepenseRepository from './DepenseRepository';
+import DetteRepository from './DetteRepository';
+import RemboursementRepository from './RemboursementRepository';
+import ClientRepository from './ClientRepository';
 
-class DepenseRepository {
+class EventRepository {
   constructor() {
     this.db = Database;
+    this.initialized = false;
   }
 
   async init() {
-    await this.db.init();
-  }
-
-  async createDepense(montant, description) {
+    if (this.initialized) return;
+    
     try {
-      let result;
-      await this.db.db.transaction(async (tx) => {
-        result = await tx.executeSql(
-          'INSERT INTO depenses (montant, describe, datedepense) VALUES (?, ?, datetime("now"))',
-          [montant, description]
-        );
-      });
-      return result.insertId;
+      await this.db.init();
+      
+      // Initialisation parallèle des repositories
+      await Promise.all([
+        BudgetRepository.init(),
+        DepenseRepository.init(),
+        DetteRepository.init(),
+        RemboursementRepository.init(),
+        ClientRepository.init()
+      ]);
+      
+      this.initialized = true;
+      console.log('EventRepository initialized');
     } catch (error) {
-      console.error('Erreur création dépense:', error);
+      console.error('Failed to initialize EventRepository:', error);
       throw error;
     }
   }
 
-  async getAllDepenses() {
+  async getAllEvents() {
     try {
-      let depenses = [];
-      await this.db.db.transaction(async (tx) => {
-        const result = await tx.executeSql('SELECT * FROM depenses ORDER BY datedepense DESC');
-        for (let i = 0; i < result.rows.length; i++) {
-          depenses.push(result.rows.item(i));
+
+      const [budgets, depenses, dettes, remboursements, clients] = await Promise.all([
+        BudgetRepository.getAllBudgets(),
+        DepenseRepository.getAllDepenses(),
+        DetteRepository.getAllDettes(true), 
+        RemboursementRepository.getAllRemboursements(true),
+        ClientRepository.getAllClients()
+      ]);
+
+
+      const clientsMap = new Map(clients.map(client => [client.idClient, client]));
+
+
+      const transformEvent = (item, type) => {
+        const base = {
+          date: item.date,
+          type,
+          montant: item.montant,
+          id: item[`id${type.charAt(0).toUpperCase() + type.slice(1)}`],
+          description: item.description || null
+        };
+
+        if (type !== 'depense') {
+          base.clientName = clientsMap.get(item.idClient)?.nom || 'Client inconnu';
         }
-      });
-      return depenses;
+
+        return base;
+      };
+
+      return [
+        ...budgets.map(b => transformEvent(b, 'budget')),
+        ...depenses.map(d => transformEvent(d, 'depense')),
+        ...dettes.map(d => transformEvent(d, 'dette')),
+        ...remboursements.map(r => transformEvent(r, 'remboursement'))
+      ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
     } catch (error) {
-      console.error('Erreur récupération dépenses:', error);
+      console.error('Error getting all events:', error);
       throw error;
     }
   }
 
-  async getDepensesBetweenDates(startDate, endDate) {
+  async getEventsByDateRange(startDate, endDate) {
     try {
-      let depenses = [];
-      await this.db.db.transaction(async (tx) => {
-        const result = await tx.executeSql(
-          'SELECT * FROM depenses WHERE datedepense BETWEEN ? AND ? ORDER BY datedepense DESC',
-          [startDate, endDate]
-        );
-        for (let i = 0; i < result.rows.length; i++) {
-          depenses.push(result.rows.item(i));
-        }
+      const allEvents = await this.getAllEvents();
+      return allEvents.filter(event => {
+        const eventDate = new Date(event.date);
+        return eventDate >= new Date(startDate) && eventDate <= new Date(endDate);
       });
-      return depenses;
     } catch (error) {
-      console.error('Erreur récupération dépenses par date:', error);
+      console.error('Error getting events by date range:', error);
       throw error;
     }
   }
 
-  async deleteDepense(idDepense) {
+  async getFinancialSummary() {
     try {
-      await this.db.db.transaction(async (tx) => {
-        await tx.executeSql(
-          'DELETE FROM depenses WHERE idDepense = ?',
-          [idDepense]
-        );
-      });
-      return true;
+      const [budgets, depenses, dettes, remboursements] = await Promise.all([
+        BudgetRepository.getAllBudgets(),
+        DepenseRepository.getAllDepenses(),
+        DetteRepository.getAllDettes(true),
+        RemboursementRepository.getAllRemboursements(true)
+      ]);
+
+      const totalBudgets = budgets.reduce((sum, b) => sum + b.montant, 0);
+      const totalDepenses = depenses.reduce((sum, d) => sum + d.montant, 0);
+      const totalDettes = dettes.reduce((sum, d) => sum + d.montant, 0);
+      const totalRemboursements = remboursements.reduce((sum, r) => sum + r.montant, 0);
+
+      return {
+        totalBudgets,
+        totalDepenses,
+        totalDettes,
+        totalRemboursements,
+        solde: totalBudgets - totalDepenses,
+        dettesRestantes: totalDettes - totalRemboursements
+      };
     } catch (error) {
-      console.error('Erreur suppression dépense:', error);
+      console.error('Error calculating financial summary:', error);
       throw error;
     }
   }
 }
 
-export default new DepenseRepository();
+
+const eventRepository = new EventRepository();
+export default eventRepository;
