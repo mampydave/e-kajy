@@ -122,3 +122,6 @@ class EventRepository {
 
 const eventRepository = new EventRepository();
 export default eventRepository;
+}
+
+

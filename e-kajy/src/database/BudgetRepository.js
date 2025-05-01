@@ -48,8 +48,7 @@ class BudgetRepository {
     }
   }
 
-<<<<<<< Updated upstream
-=======
+
   async getAllBudgets() {
     try {
       const result = await this.executeQuery(
@@ -62,7 +61,7 @@ class BudgetRepository {
     }
   }
 
->>>>>>> Stashed changes
+
   async getBudgetsByClient(idClient) {
     try {
       const result = await this.executeQuery(

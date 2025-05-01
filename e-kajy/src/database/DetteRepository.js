@@ -48,9 +48,7 @@ class DetteRepository {
     }
   }
 
-<<<<<<< Updated upstream
-  async getDettesByClient(idClient) {
-=======
+
   async getAllDettes(withClientInfo = false) {
     try {
       const query = withClientInfo 
@@ -69,7 +67,6 @@ class DetteRepository {
   }
 
   async getDettesByClient(idClient, includeRemboursements = false) {
->>>>>>> Stashed changes
     try {
       let query = 'SELECT * FROM dettes WHERE idClient = ? ORDER BY datedette DESC';
       

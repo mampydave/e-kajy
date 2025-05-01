@@ -50,9 +50,6 @@ class RemboursementRepository {
     }
   }
 
-<<<<<<< Updated upstream
-  async getRemboursementsByClient(idClient) {
-=======
   async getAllRemboursements(withClientInfo = false) {
     try {
       const query = withClientInfo
@@ -71,7 +68,6 @@ class RemboursementRepository {
   }
 
   async getRemboursementsByClient(idClient, withDetteInfo = false) {
->>>>>>> Stashed changes
     try {
       let query = `SELECT r.* FROM remboursements r 
                    WHERE r.idClient = ? 

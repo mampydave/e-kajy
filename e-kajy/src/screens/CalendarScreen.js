@@ -1,13 +1,3 @@
-<<<<<<< Updated upstream
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { useNavigation } from '@react-navigation/native';
-
-export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState(null);
-  const navigation = useNavigation();
-=======
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { Calendar, Agenda } from 'react-native-calendars';
@@ -22,7 +12,7 @@ export default function CalendarScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [events, setEvents] = useState({});
   const [dayEvents, setDayEvents] = useState([]);
-  const [viewMode, setViewMode] = useState('month'); 
+  const [viewMode, setViewMode] = useState('month');
 
   useEffect(() => {
     const initialize = async () => {
@@ -54,6 +44,7 @@ export default function CalendarScreen() {
           color: getEventColor(event.type),
         });
         
+
         if (!eventsByDate[event.date]) {
           eventsByDate[event.date] = [];
         }
@@ -69,7 +60,6 @@ export default function CalendarScreen() {
       console.error('Erreur chargement événements', error);
     }
   };
->>>>>>> Stashed changes
 
   const getEventColor = (type) => {
     const colors = {
@@ -83,9 +73,6 @@ export default function CalendarScreen() {
 
   const handleDayPress = (day) => {
     setSelectedDate(day.dateString);
-<<<<<<< Updated upstream
-    navigation.navigate('AddEvent', { selectedDate: day.dateString });
-=======
     if (viewMode === 'month') {
       setModalVisible(true);
     }
@@ -94,7 +81,6 @@ export default function CalendarScreen() {
   const handleCloseModal = () => {
     setModalVisible(false);
     loadEvents();
->>>>>>> Stashed changes
   };
 
   const renderEventItem = (event) => (
@@ -114,21 +100,8 @@ export default function CalendarScreen() {
 
   return (
     <View style={styles.container}>
-<<<<<<< Updated upstream
-      <Text style={styles.title}>Calendrier</Text>
-      <Calendar
-        onDayPress={handleDayPress}
-        markedDates={{
-          [selectedDate]: {
-            selected: true,
-            marked: true,
-            selectedColor: 'black',
-          },
-        }}
-      />
-=======
       <View style={styles.header}>
-        <Text style={styles.title}>Mon Calendrier</Text>
+        <Text style={styles.title}>Mon Agenda</Text>
         <View style={styles.viewSwitcher}>
           <TouchableOpacity 
             style={[styles.viewButton, viewMode === 'month' && styles.activeView]}
@@ -216,17 +189,11 @@ export default function CalendarScreen() {
           <AddEventScreen selectedDate={selectedDate} onClose={handleCloseModal} />
         </View>
       </Modal>
->>>>>>> Stashed changes
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-<<<<<<< Updated upstream
-  container: { flex: 1, padding: 10 },
-  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-});
-=======
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -321,4 +288,3 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
 });
->>>>>>> Stashed changes
