@@ -16,35 +16,36 @@ class DashboardRepository {
   }
 
   async executeQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.db.transaction(
-        tx => {
-          tx.executeSql(
-            sql,
-            params,
-            (_, result) => resolve(result),
-            (_, error) => {
-              console.error('SQL Error:', error);
-              reject(error);
-              return true;
-            }
-          );
-        },
-        error => reject(error)
-      );
-    });
+    try {
+      const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+      if (isSelect) {
+        const rows = await this.db.getDb().getAllAsync(sql, params);
+        return { rows: Array.isArray(rows) ? rows : [] };
+      } else {
+        const result = await this.db.getDb().getAllAsync(sql, params);
+        return {
+          insertId: result.lastInsertRowId,
+          rowsAffected: result.changes,
+          rows: []
+        };
+      }
+    } catch (error) {
+      console.error('SQL Error:', error, 'Query:', sql);
+      throw error;
+    }
   }
 
-  async getDashboardDataByDateType(type = 'jour') {
+  async getDashboardDataByYear(year, month) {
     try {
-      const dateFilter = this._buildDateFilter(type);
+      await this.db.ensureInitialized();
+      const dateFilter = this._buildDateFilter(year, month);
       const data = {
         budget: 0,
         depense: 0,
+        solde: 0,
         historique: [],
         clientsAvecDetteNonRembourse: []
       };
-
 
       const [budgetRes, depenseRes, historiqueRes, dettesRes] = await Promise.all([
         this.executeQuery(`SELECT SUM(montant) AS total FROM budgets ${dateFilter('datebudget')}`),
@@ -60,62 +61,77 @@ class DashboardRepository {
           ORDER BY date DESC
         `),
         this.executeQuery(`
-          SELECT c.nom, 
-                 SUM(d.montant) AS totalDette, 
-                 IFNULL(SUM(r.montant), 0) AS totalRembourse, 
-                 (SUM(d.montant) - IFNULL(SUM(r.montant), 0)) AS restant
-          FROM dettes d
+          SELECT 
+            c.nom,
+            d.totalDette,
+            IFNULL(r.totalRembourse, 0) AS totalRembourse,
+            (d.totalDette - IFNULL(r.totalRembourse, 0)) AS restant
+          FROM (
+            SELECT idClient, SUM(montant) AS totalDette
+            FROM dettes
+            ${dateFilter('datedette')}
+            GROUP BY idClient
+          ) d
           INNER JOIN clients c ON c.idClient = d.idClient
-          LEFT JOIN remboursements r ON r.idClient = d.idClient
-          GROUP BY d.idClient
-          HAVING restant > 0
+          LEFT JOIN (
+            SELECT idClient, SUM(montant) AS totalRembourse
+            FROM remboursements
+            ${dateFilter('dateRemboursement')}
+            GROUP BY idClient
+          ) r ON r.idClient = d.idClient
+          WHERE (d.totalDette - IFNULL(r.totalRembourse, 0)) > 0
         `)
+
       ]);
 
+      data.budget = budgetRes.rows[0]?.total || 0;
+      data.depense = depenseRes.rows[0]?.total || 0;
+      data.solde = data.budget - data.depense;
 
-      data.budget = budgetRes.rows.item(0)?.total || 0;
-      data.depense = depenseRes.rows.item(0)?.total || 0;
-
+      const historiqueRows = Array.isArray(historiqueRes.rows) ? historiqueRes.rows : [];
       const historiqueWithClients = await Promise.all(
-        historiqueRes.rows._array.map(async item => ({
+        historiqueRows.map(async item => ({
           ...item,
           client: item.idClient ? await this._getClientNameById(item.idClient) : '-'
         }))
       );
       data.historique = historiqueWithClients;
 
-      data.clientsAvecDetteNonRembourse = dettesRes.rows._array.map(row => ({
+      const dettesRows = Array.isArray(dettesRes.rows) ? dettesRes.rows : [];
+      data.clientsAvecDetteNonRembourse = dettesRows.map(row => ({
         nom: row.nom,
         montant: row.restant
       }));
 
       return data;
     } catch (error) {
-      console.error('Error in getDashboardDataByDateType:', error);
+      console.error('Error in getDashboardDataByMonthYear:', error);
       throw error;
     }
   }
 
-  _buildDateFilter(type) {
-    return (dateCol) => {
-      const now = new Date().toISOString();
-      switch (type) {
-        case 'jour':
-          return `WHERE date(${dateCol}) = date('${now}')`;
-        case 'semaine':
-          return `WHERE strftime('%W', ${dateCol}) = strftime('%W', '${now}') 
-                  AND strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
-        case 'mois':
-          return `WHERE strftime('%m', ${dateCol}) = strftime('%m', '${now}') 
-                  AND strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
-        case 'annee':
-          return `WHERE strftime('%Y', ${dateCol}) = strftime('%Y', '${now}')`;
-        default:
-          return '';
+
+  _buildDateFilter(year, month = null) {
+    return (dateCol, includeWhere = true) => {
+      if (!year) return includeWhere ? '' : '1=1';
+      
+      let condition;
+      if (month) {
+
+        condition = `strftime('%m', ${dateCol}) = '${month.toString().padStart(2, '0')}' 
+                    AND strftime('%Y', ${dateCol}) = '${year}'`;
+      } else {
+
+        condition = `strftime('%Y', ${dateCol}) = '${year}'`;
+      }
+      
+      if (includeWhere) {
+        return condition ? `WHERE ${condition}` : '';
+      } else {
+        return condition;
       }
     };
   }
-
   async _getClientNameById(idClient) {
     if (!idClient) return '-';
     try {
@@ -123,7 +139,7 @@ class DashboardRepository {
         'SELECT nom FROM clients WHERE idClient = ?',
         [idClient]
       );
-      return res.rows.length > 0 ? res.rows.item(0).nom : '-';
+      return res.rows.length > 0 ? res.rows[0].nom : '-';
     } catch (error) {
       console.error('Error fetching client name:', error);
       return '-';
@@ -131,23 +147,26 @@ class DashboardRepository {
   }
 
   async resetAllData() {
+    await this.db.ensureInitialized();
+
+    const tables = ['budgets', 'depenses', 'dettes', 'remboursements', 'clients'];
+
     try {
-      await this.db.db.transaction(async tx => {
-        const tables = ['budgets', 'depenses', 'dettes', 'remboursements', 'clients'];
-        for (const table of tables) {
-          await tx.executeSql(`DELETE FROM ${table}`);
-          await tx.executeSql(`DELETE FROM sqlite_sequence WHERE name = ?`, [table]);
-        }
-      });
+      for (const table of tables) {
+        await this.db.executeSql(`DELETE FROM ${table}`);
+        await this.db.executeSql(`DELETE FROM sqlite_sequence WHERE name = ?`, [table]);
+      }
+
       console.log('All data reset successfully');
+      await this.db.init(); 
       return true;
     } catch (error) {
       console.error('Error resetting data:', error);
       throw error;
     }
   }
-}
 
+}
 
 const dashboardRepository = new DashboardRepository();
 export default dashboardRepository;

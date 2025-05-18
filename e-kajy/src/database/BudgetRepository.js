@@ -16,30 +16,46 @@ class BudgetRepository {
   }
 
   async executeQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.db.transaction(
-        tx => {
-          tx.executeSql(
-            sql,
-            params,
-            (_, result) => resolve(result),
-            (_, error) => {
-              console.error('SQL Error:', error);
-              reject(error);
-              return true; 
-            }
-          );
-        },
-        error => reject(error)
-      );
-    });
+    try {
+      const isSelectQuery = sql.trim().toUpperCase().startsWith('SELECT');
+
+      if (isSelectQuery) {
+        // getAllAsync retourne un tableau ou undefined => on sécurise
+        const rows = await this.db.db.getAllAsync(sql, params);
+        return { rows: { _array: rows ?? [] } };
+      } else {
+        const result = await this.db.db.runAsync(sql, params);
+        return {
+          insertId: result.lastInsertRowId,
+          rowsAffected: result.changes,
+        };
+      }
+    } catch (error) {
+      console.error('SQL Error:', error, 'Query:', sql);
+      throw error;
+    }
   }
 
-  async createBudget(idClient, montant) {
+  async createBudget(idClient, montant, datecreation) {
     try {
+      const dateObj = new Date(datecreation);
+      
+      if (isNaN(dateObj.getTime())) {
+        dateObj = new Date();
+      }
+      
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+      
+      const datetimeValue = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      
       const result = await this.executeQuery(
-        'INSERT INTO budgets (idClient, montant, datebudget) VALUES (?, ?, datetime("now"))',
-        [idClient, montant]
+        'INSERT INTO budgets (idClient, montant, datebudget) VALUES (?, ?, ?)',
+        [idClient, montant, datetimeValue]
       );
       return result.insertId;
     } catch (error) {
@@ -48,19 +64,17 @@ class BudgetRepository {
     }
   }
 
-
   async getAllBudgets() {
     try {
       const result = await this.executeQuery(
         'SELECT * FROM budgets ORDER BY datebudget DESC'
       );
-      return result.rows._array;
+      return result.rows._array ?? [];
     } catch (error) {
       console.error('Error fetching budgets:', error);
       throw error;
     }
   }
-
 
   async getBudgetsByClient(idClient) {
     try {
@@ -68,7 +82,7 @@ class BudgetRepository {
         'SELECT * FROM budgets WHERE idClient = ? ORDER BY datebudget DESC',
         [idClient]
       );
-      return result.rows._array;
+      return result.rows._array ?? [];
     } catch (error) {
       console.error('Error fetching client budgets:', error);
       throw error;
@@ -101,21 +115,19 @@ class BudgetRepository {
     }
   }
 
-
   async getTotalBudgetByClient(idClient) {
     try {
       const result = await this.executeQuery(
         'SELECT SUM(montant) as total FROM budgets WHERE idClient = ?',
         [idClient]
       );
-      return result.rows._array[0]?.total || 0;
+      return result.rows._array[0]?.total ?? 0;
     } catch (error) {
       console.error('Error calculating total budget:', error);
       throw error;
     }
   }
 }
-
 
 const budgetRepository = new BudgetRepository();
 export default budgetRepository;
