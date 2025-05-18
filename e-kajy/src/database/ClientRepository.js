@@ -10,29 +10,29 @@ class ClientRepository {
       await this.db.init();
       console.log('ClientRepository initialized');
     } catch (error) {
-      console.error('Failed to initialize ClientRepository:', error);
+      console.error('ClientRepository Init Error:', error);
       throw error;
     }
   }
 
   async executeQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.db.transaction(
-        tx => {
-          tx.executeSql(
-            sql,
-            params,
-            (_, result) => resolve(result),
-            (_, error) => {
-              console.error('SQL Error:', error);
-              reject(error);
-              return true; 
-            }
-          );
-        },
-        error => reject(error)
-      );
-    });
+    try {
+      const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+      if (isSelect) {
+        const result = await this.db.getDb().getAllAsync(sql, params);
+        return { rows: { _array: result } };
+      } else {
+        const result = await this.db.db.runAsync(sql, params);
+        return {
+          insertId: result.lastInsertRowId,
+          rowsAffected: result.changes,
+          rows: { _array: [] }
+        };
+      }
+    } catch (error) {
+      console.error('SQL Error:', error, 'Query:', sql);
+      throw error;
+    }
   }
 
   async createClient(nom) {
@@ -43,7 +43,7 @@ class ClientRepository {
       );
       return result.insertId;
     } catch (error) {
-      console.error('Error creating client:', error);
+      console.error('Create Client Error:', error);
       throw error;
     }
   }
@@ -55,7 +55,7 @@ class ClientRepository {
       );
       return result.rows._array;
     } catch (error) {
-      console.error('Error fetching clients:', error);
+      console.error('Get Clients Error:', error);
       throw error;
     }
   }
@@ -68,7 +68,7 @@ class ClientRepository {
       );
       return result.rows._array[0] || null;
     } catch (error) {
-      console.error('Error fetching client:', error);
+      console.error('Get Client Error:', error);
       throw error;
     }
   }
@@ -81,7 +81,7 @@ class ClientRepository {
       );
       return result.rowsAffected > 0;
     } catch (error) {
-      console.error('Error updating client:', error);
+      console.error('Update Client Error:', error);
       throw error;
     }
   }
@@ -94,12 +94,11 @@ class ClientRepository {
       );
       return result.rowsAffected > 0;
     } catch (error) {
-      console.error('Error deleting client:', error);
+      console.error('Delete Client Error:', error);
       throw error;
     }
   }
 }
-
 
 const clientRepository = new ClientRepository();
 export default clientRepository;

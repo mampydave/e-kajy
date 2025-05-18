@@ -1,5 +1,5 @@
 import Database from './Database';
-
+import DetteRepository from './DetteRepository';
 class RemboursementRepository {
   constructor() {
     this.db = Database;
@@ -16,36 +16,68 @@ class RemboursementRepository {
   }
 
   async executeQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.db.transaction(
-        tx => {
-          tx.executeSql(
-            sql,
-            params,
-            (_, result) => resolve(result),
-            (_, error) => {
-              console.error('SQL Error:', error);
-              reject(error);
-              return true;
-            }
-          );
-        },
-        error => reject(error)
-      );
-    });
+    try {
+      const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+      if (isSelect) {
+        const result = await this.db.db.getAllAsync(sql, params);
+        return { rows: { _array: result } };
+      } else {
+        const result = await this.db.db.runAsync(sql, params);
+        return {
+          insertId: result.lastInsertRowId,
+          rowsAffected: result.changes,
+          rows: { _array: [] }
+        };
+      }
+    } catch (error) {
+      console.error('SQL Error:', error, 'Query:', sql);
+      throw error;
+    }
   }
 
-  async createRemboursement(idClient, montant, idDette = null, description = '') {
+  async createRemboursement(idClient, montant, datecreation, description = '') {
     try {
+      await DetteRepository.init();
+      description = 'remboursement du ' + datecreation;
+      const restant = await DetteRepository.getTotalDettesNonRembourseesByClient(idClient);
+
+      if (restant <= 0) {
+        throw new Error("Ce client n'a pas de dettes à rembourser.");
+      }
+
+      if (montant > restant) {
+        throw new Error(`Le montant à rembourser dépasse la dette restante (${restant}).`);
+      }
+
+      let dateObj = new Date(datecreation);
+      if (isNaN(dateObj.getTime())) {
+        dateObj = new Date();
+      }
+
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+
+      const datetimeValue = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
       const result = await this.executeQuery(
-        `INSERT INTO remboursements 
-         (idClient, idDette, montant, description, dateremboursement) 
-         VALUES (?, ?, ?, ?, datetime("now"))`,
-        [idClient, idDette, montant, description]
+        `INSERT INTO remboursements (idClient, montant, description, dateRemboursement) VALUES (?, ?, ?, ?)`,
+        [idClient, montant, description, datetimeValue]
       );
+      const inserted = await this.executeQuery(
+        `SELECT * FROM remboursements WHERE idRemboursement = ?`,
+        [result.insertId]
+      );
+console.log('🧪 Vérification : remboursement inséré =>', JSON.stringify(inserted.rows._array, null, 2));
+
+
       return result.insertId;
+
     } catch (error) {
-      console.error('Error creating remboursement:', error);
+      console.error('Erreur lors du remboursement :', error.message);
       throw error;
     }
   }
@@ -97,7 +129,7 @@ class RemboursementRepository {
          WHERE idClient = ?`,
         [idClient]
       );
-      return result.rows.item(0)?.total || 0;
+      return result.rows._array[0]?.total || 0;
     } catch (error) {
       console.error('Error calculating total remboursements:', error);
       throw error;
@@ -148,8 +180,17 @@ class RemboursementRepository {
       throw error;
     }
   }
-}
+  
+  async getTotalRemboursementByClient(idClient) {
+    const results = await this.executeQuery(
+    `SELECT SUM(montant) as total FROM remboursements WHERE idClient = ?`,
+      [idClient]
+    );
+    const total = results.rows._array[0]?.total || 0;
+    return total;
+  }
 
+}
 
 const remboursementRepository = new RemboursementRepository();
 export default remboursementRepository;

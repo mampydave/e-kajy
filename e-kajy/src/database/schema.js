@@ -35,6 +35,7 @@ export const SCHEMA = {
           { name: 'idDette', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
           { name: 'montant', type: 'REAL' },
           { name: 'idClient', type: 'INTEGER' },
+          { name: 'description', type: 'TEXT' },
           { name: 'datedette', type: 'TEXT DEFAULT CURRENT_TIMESTAMP' },
           { 
             name: 'FOREIGN KEY(idClient) REFERENCES clients(idClient)',
@@ -48,9 +49,15 @@ export const SCHEMA = {
           { name: 'idRemboursement', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
           { name: 'montant', type: 'REAL' },
           { name: 'idClient', type: 'INTEGER' },
+          { name: 'idDette', type: 'INTEGER' },
+          { name: 'description', type: 'TEXT' },
           { name: 'dateRemboursement', type: 'TEXT DEFAULT CURRENT_TIMESTAMP' },
           { 
             name: 'FOREIGN KEY(idClient) REFERENCES clients(idClient)',
+            type: ''
+          },
+          { 
+            name: 'FOREIGN KEY(idDette) REFERENCES dettes(idDette)',
             type: ''
           }
         ]

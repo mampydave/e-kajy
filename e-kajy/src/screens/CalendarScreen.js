@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  RefreshControl,
+} from 'react-native';
 import { Calendar, Agenda } from 'react-native-calendars';
 import AddEventScreen from './AddEventScreen';
 import EventRepository from './../database/EventRepository';
@@ -13,6 +22,8 @@ export default function CalendarScreen() {
   const [events, setEvents] = useState({});
   const [dayEvents, setDayEvents] = useState([]);
   const [viewMode, setViewMode] = useState('month');
+  const [refreshing, setRefreshing] = useState(false);
+  const [eventsByDate, setEventsByDate] = useState({});
 
   useEffect(() => {
     const initialize = async () => {
@@ -29,44 +40,48 @@ export default function CalendarScreen() {
   const loadEvents = async () => {
     try {
       const allEvents = await EventRepository.getAllEvents();
-      
+
       const marked = {};
       const eventsByDate = {};
-      
-      allEvents.forEach(event => {
 
-        if (!marked[event.date]) {
-          marked[event.date] = { dots: [] };
+      allEvents.forEach(event => {
+        if (!event.date) return;
+        const eventDate = event.date.split('T')[0];
+
+        if (!marked[eventDate]) {
+          marked[eventDate] = { dots: [] };
         }
-        
-        marked[event.date].dots.push({
-          key: event.id,
+
+        marked[eventDate].dots.push({
+          key: `${event.type}-${event.id}`,
           color: getEventColor(event.type),
         });
-        
 
-        if (!eventsByDate[event.date]) {
-          eventsByDate[event.date] = [];
+        if (!eventsByDate[eventDate]) {
+          eventsByDate[eventDate] = [];
         }
-        eventsByDate[event.date].push(event);
+        eventsByDate[eventDate].push(event);
       });
-      
-      setEvents(marked);
 
-      if (selectedDate && eventsByDate[selectedDate]) {
-        setDayEvents(eventsByDate[selectedDate]);
-      }
+      setEvents(marked);
+      setDayEvents(eventsByDate[selectedDate] || []);
     } catch (error) {
       console.error('Erreur chargement événements', error);
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadEvents();
+    setRefreshing(false);
+  }, []);
+
   const getEventColor = (type) => {
     const colors = {
-      budget: '#0f9d58', 
-      depense: '#db4437', 
-      dette: '#4285f4', 
-      remboursement: '#ffbb33' 
+      budget: '#0f9d58',
+      depense: '#db4437',
+      dette: '#4285f4',
+      remboursement: '#ffbb33',
     };
     return colors[type] || '#999';
   };
@@ -84,17 +99,16 @@ export default function CalendarScreen() {
   };
 
   const renderEventItem = (event) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.eventItem, { borderLeftColor: getEventColor(event.type) }]}
       onPress={() => console.log('Edit event', event.id)}
     >
-      <Text style={styles.eventTime}>{event.date.split('T')[1] || 'Toute la journée'}</Text>
       <Text style={styles.eventTitle}>
-        {event.type.toUpperCase()}: {event.montant}€
+        {(event.type ? event.type.toUpperCase() : 'TYPE INCONNU')}: {event.montant} Ar
       </Text>
-      {event.description && (
-        <Text style={styles.eventDescription}>{event.description}</Text>
-      )}
+      {event.clientName && <Text style={styles.eventClient}>Client: {event.clientName}</Text>}
+      {event.description && <Text style={styles.eventDescription}>{event.description}</Text>}
+      <Text style={styles.eventDate}>{event.date}</Text>
     </TouchableOpacity>
   );
 
@@ -103,13 +117,13 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Mon Agenda</Text>
         <View style={styles.viewSwitcher}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.viewButton, viewMode === 'month' && styles.activeView]}
             onPress={() => setViewMode('month')}
           >
             <MaterialIcons name="calendar-today" size={24} color={viewMode === 'month' ? '#fff' : '#4285f4'} />
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.viewButton, viewMode === 'agenda' && styles.activeView]}
             onPress={() => setViewMode('agenda')}
           >
@@ -125,25 +139,37 @@ export default function CalendarScreen() {
               todayTextColor: '#4285f4',
               selectedDayBackgroundColor: '#4285f4',
               arrowColor: '#4285f4',
+              dotColor: '#ffffff',
+              selectedDotColor: '#ffffff',
             }}
             onDayPress={handleDayPress}
             markedDates={{
-              ...events,
+              ...Object.keys(events).reduce((acc, date) => {
+                acc[date] = {
+                  dots: events[date].dots,
+                  selected: date === selectedDate,
+                };
+                return acc;
+              }, {}),
               [selectedDate]: {
                 selected: true,
                 selectedColor: '#4285f4',
               }
             }}
-            markingType={'multi-dot'}
+            markingType="multi-dot"
           />
-          
+
           <View style={styles.dayEvents}>
             <Text style={styles.sectionTitle}>
               Événements du {new Date(selectedDate).toLocaleDateString()}
             </Text>
-            <ScrollView>
+            <ScrollView
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+            >
               {dayEvents.map(event => (
-                <View key={event.id} style={styles.eventItem}>
+                <View key={`${event.id}-${event.type}`} style={styles.eventItem}>
                   {renderEventItem(event)}
                 </View>
               ))}
@@ -155,7 +181,13 @@ export default function CalendarScreen() {
         </>
       ) : (
         <Agenda
-          items={events}
+          items={Object.keys(events).reduce((acc, date) => {
+            acc[date] = events[date].dots.map(dot => ({
+              ...dayEvents.find(e => e.id === dot.key.split('-')[1]),
+              height: 50
+            }));
+            return acc;
+          }, {})}
           selected={selectedDate}
           renderItem={renderEventItem}
           renderEmptyDate={() => (
@@ -170,6 +202,7 @@ export default function CalendarScreen() {
             agendaDayNumColor: '#4285f4',
             agendaTodayColor: '#4285f4',
           }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
 
@@ -246,20 +279,25 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderLeftWidth: 4,
   },
-  eventTime: {
-    color: '#5f6368',
-    fontSize: 12,
-    marginBottom: 5,
-  },
   eventTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#202124',
   },
+  eventClient: {
+    color: '#5f6368',
+    fontSize: 14,
+    marginTop: 4,
+  },
   eventDescription: {
     color: '#5f6368',
-    marginTop: 5,
+    marginTop: 4,
     fontSize: 14,
+  },
+  eventDate: {
+    color: '#5f6368',
+    fontSize: 12,
+    marginTop: 4,
   },
   noEvents: {
     color: '#5f6368',
