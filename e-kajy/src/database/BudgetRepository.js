@@ -15,6 +15,7 @@ class BudgetRepository {
     }
   }
 
+
   async executeQuery(sql, params = []) {
     try {
       const isSelectQuery = sql.trim().toUpperCase().startsWith('SELECT');
@@ -35,6 +36,27 @@ class BudgetRepository {
       throw error;
     }
   }
+
+  async getBudgetMonthYearClient(annee, mois) {
+    try {
+      const result = await this.executeQuery(
+        `
+        SELECT budgets.*, clients.nom 
+        FROM budgets 
+        JOIN clients ON budgets.idClient = clients.idClient 
+        WHERE strftime('%Y', datebudget) = ? AND strftime('%m', datebudget) = ? 
+        ORDER BY datebudget DESC
+        `,
+        [annee.toString(), mois.toString().padStart(2, '0')]
+      );
+      
+      return result.rows._array ?? [];
+    } catch (error) {
+      console.error('Error fetching budgets by month/year:', error);
+      throw error;
+    }
+  }
+
 
   async createBudget(idClient, montant, datecreation) {
     try {

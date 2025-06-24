@@ -4,6 +4,7 @@ import { PieChart, BarChart } from 'react-native-chart-kit';
 import DashboardRepository from './../database/DashboardRepository';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -15,6 +16,7 @@ const DashboardScreen = () => {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -312,39 +314,71 @@ const DashboardScreen = () => {
 
       {renderMonthYearFilter()}
 
-      <View style={styles.summaryCards}>
-        <View style={[styles.card, styles.budgetCard]}>
-          <MaterialIcons name="attach-money" size={24} color="#4CAF50" />
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Budget Total</Text>
-            <Text style={styles.cardAmount}>
-              {(dashboardData?.budget || 0).toLocaleString()} Ar
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.card, styles.expenseCard]}>
-          <MaterialIcons name="money-off" size={24} color="#F44336" />
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Dépenses Total</Text>
-            <Text style={styles.cardAmount}>
-              {(dashboardData?.depense || 0).toLocaleString()} Ar
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.card, dashboardData?.solde >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
-          <MaterialIcons 
-            name={dashboardData?.solde >= 0 ? "trending-up" : "trending-down"} 
-            size={24} 
-            color={dashboardData?.solde >= 0 ? "#1976D2" : "#EF6C00"} 
-          />
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Solde</Text>
-            <Text style={[styles.cardAmount, { color: dashboardData?.solde >= 0 ? "#1976D2" : "#EF6C00" }]}>
-              {(dashboardData?.solde || 0).toLocaleString()} Ar
-            </Text>
-          </View>
+    <View style={styles.summaryCards}>
+      {/* Budget */}
+      <View style={[styles.card, styles.budgetCard]}>
+        <MaterialIcons name="attach-money" size={24} color="#4CAF50" />
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitle}>Budget Total</Text>
+          <Text style={styles.cardAmount}>
+            {(dashboardData?.budget || 0).toLocaleString()} Ar
+          </Text>
         </View>
       </View>
+
+      {/* Dépenses */}
+      <View style={[styles.card, styles.expenseCard]}>
+        <MaterialIcons name="money-off" size={24} color="#F44336" />
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitle}>Dépenses Total</Text>
+          <Text style={styles.cardAmount}>
+            {(dashboardData?.depense || 0).toLocaleString()} Ar
+          </Text>
+        </View>
+      </View>
+
+      {/* Solde */}
+      <View style={[
+        styles.card,
+        dashboardData?.solde >= 0 ? styles.positiveBalance : styles.negativeBalance
+      ]}>
+        <MaterialIcons
+          name={dashboardData?.solde >= 0 ? "trending-up" : "trending-down"}
+          size={24}
+          color={dashboardData?.solde >= 0 ? "#1976D2" : "#EF6C00"}
+        />
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitle}>Solde</Text>
+          <Text style={[styles.cardAmount, { color: dashboardData?.solde >= 0 ? "#1976D2" : "#EF6C00" }]}>
+            {(dashboardData?.solde || 0).toLocaleString()} Ar
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.card, styles.moreCard]}
+        onPress={() => {
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentMonth = now.getMonth() + 1;
+
+          const annee = selectedYear ?? currentYear;
+          const mois = selectedMonth ?? currentMonth;
+          // console.log('annee', annee, 'mois', mois);
+          
+          navigation.navigate('SummaryScreen', { annee, mois });
+        }}
+      >
+        <MaterialIcons name="more-horiz" size={24} color="#fff" />
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitlePlus}>Plus</Text>
+          <Text style={styles.cardAmountPlus}>Voir détails</Text>
+        </View>
+      </TouchableOpacity>
+
+
+    </View>
+
 
       {renderPieChart()}
       {renderDetteChart()}
@@ -450,7 +484,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   card: {
-    width: '100%',
+    width: '48%',
     padding: 15,
     borderRadius: 10,
     elevation: 2,
@@ -475,6 +509,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#555',
   },
   cardAmount: {
@@ -672,6 +707,19 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  moreCard: {
+    backgroundColor: '#ac78cc',
+  },
+  cardTitlePlus: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cardAmountPlus: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
 
