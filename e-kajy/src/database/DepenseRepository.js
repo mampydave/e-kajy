@@ -35,6 +35,25 @@ class DepenseRepository {
     }
   }
 
+  async getDepensesByMonthYear(annee, mois) {
+    try {
+      const result = await this.executeQuery(
+        `
+        SELECT * FROM depenses 
+        WHERE strftime('%Y', datedepense) = ? AND strftime('%m', datedepense) = ?
+        ORDER BY datedepense DESC
+        `,
+        [annee.toString(), mois.toString().padStart(2, '0')]
+      );
+
+      return result.rows._array ?? [];
+    } catch (error) {
+      console.error('Error fetching depenses by month/year:', error);
+      throw error;
+    }
+  }
+
+
   async createDepense(montant, description, datecreation) {
     try {
       const dateObj = new Date(datecreation);

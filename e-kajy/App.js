@@ -10,6 +10,7 @@ import ClientScreen from './src/screens/ClientScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import AddEventScreen from './src/screens/AddEventScreen';
 import {DatabaseProvider} from './src/context/DatabaseContext';
+import SummaryScreen from './src/screens/SummaryScreen';
 
 enableScreens();
 
@@ -19,6 +20,7 @@ export default function App() {
     { name: 'AddEvent', component: AddEventScreen }, 
     { name: 'Dashboard', component: DashboardScreen },
     { name: 'Clients', component: ClientScreen },
+    { name: 'SummaryScreen', component: SummaryScreen },
   ];
   const [isReady, setIsReady] = React.useState(false);
 
